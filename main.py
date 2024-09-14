@@ -25,9 +25,9 @@ WHITE = (255, 255, 255)
 GOLD = (255, 215, 0)
 GREEN = (0, 255, 0)
 MAGENTA = (255, 0, 255)
-
 LIGHT_BLUE = (173, 216, 230)
 
+TOTAL_SCORE_TO_WIN = 500
 # Initialize screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption('Pacman')
@@ -210,7 +210,7 @@ class Maze:
         self.grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
 
         # Load the lightning image
-        self.lightning_img = pygame.image.load('assets/lightning.webp').convert_alpha()
+        self.lightning_img = pygame.image.load('assets/lightning.png').convert_alpha()
         self.lightning_img = pygame.transform.scale(self.lightning_img, (TILE_SIZE, TILE_SIZE))  # Resize to fit tiles
 
         self.generate_wide_open_maze(level)
@@ -286,7 +286,7 @@ def next_level_screen():
     screen.fill(BLACK)
     font = pygame.font.Font(None, 74)
     text = font.render('Next Level', True, WHITE)
-    next_level_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2, 200, 50)
+    next_level_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2, 300, 70)
     pygame.draw.rect(screen, WHITE, next_level_button)
     next_text = font.render('Continue', True, BLACK)
     screen.blit(text, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
@@ -309,7 +309,7 @@ def game_over_screen():
     screen.fill(BLACK)
     font = pygame.font.Font(None, 74)
     text = font.render('GAME OVER', True, WHITE)
-    replay_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2, 200, 50)
+    replay_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2, 250, 70)
     pygame.draw.rect(screen, WHITE, replay_button)
     replay_text = font.render('Replay', True, BLACK)
     screen.blit(text, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
@@ -398,8 +398,8 @@ def game_loop():
                 ghosts.remove(ghost)
                 score += 200  # Pacman earns 200 points
 
-        # Check if all coins are collected or score >= 500 to complete the level
-        if not maze.coins or score >= 500:
+        # Check if all coins are collected or score >= TOTAL_SCORE_TO_WIN to complete the level
+        if not maze.coins or score >= TOTAL_SCORE_TO_WIN:
             LEVEL += 1
             if next_level_screen():
                 game_loop()
@@ -429,7 +429,7 @@ def game_loop():
         score_text = font.render(f'Score: {score}', True, WHITE)
         level_text = font.render(f'Level: {LEVEL}', True, WHITE)
         screen.blit(score_text, (10, 10))
-        screen.blit(level_text, (10, 50))
+        screen.blit(level_text, (150, 10))
 
         # Refresh the screen
         pygame.display.flip()
