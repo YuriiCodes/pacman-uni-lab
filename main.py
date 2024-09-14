@@ -210,7 +210,7 @@ class Maze:
         self.grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
 
         # Load the lightning image
-        self.lightning_img = pygame.image.load('assets/lightning.png').convert_alpha()
+        self.lightning_img = pygame.image.load('assets/lightning.webp').convert_alpha()
         self.lightning_img = pygame.transform.scale(self.lightning_img, (TILE_SIZE, TILE_SIZE))  # Resize to fit tiles
 
         self.generate_wide_open_maze(level)
