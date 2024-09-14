@@ -207,6 +207,11 @@ class Maze:
         self.cherries = []
         self.lightnings = []
         self.grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+
+        # Load the lightning image
+        self.lightning_img = pygame.image.load('assets/lightning.webp').convert_alpha()
+        self.lightning_img = pygame.transform.scale(self.lightning_img, (TILE_SIZE, TILE_SIZE))  # Resize to fit tiles
+
         self.generate_wide_open_maze(level)
 
     def generate_wide_open_maze(self, level):
@@ -268,11 +273,11 @@ class Maze:
             pygame.draw.circle(screen, RED, (x - 5, y), TILE_SIZE // 6)  # First red circle
             pygame.draw.circle(screen, RED, (x + 5, y), TILE_SIZE // 6)  # Second red circle
 
-        # Draw lightning (yellow color)
+            # Draw lightnings using the image
         for lightning in self.lightnings:
-            x = lightning[1] * TILE_SIZE + TILE_SIZE // 2
-            y = lightning[0] * TILE_SIZE + TILE_SIZE // 2
-            pygame.draw.circle(screen, MAGENTA, (x, y), TILE_SIZE // 6)
+            x = lightning[1] * TILE_SIZE
+            y = lightning[0] * TILE_SIZE
+            screen.blit(self.lightning_img, (x, y))  # Blit the image at the correct position
 
 
 def next_level_screen():
