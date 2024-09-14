@@ -45,7 +45,8 @@ class Pacman:
 
     def move(self, maze):
         # Adjust speed based on power-up state
-        movement_speed = self.speed * (2 if self.powered_up else 1)
+        # logic for speed power up can be done here
+        movement_speed = self.speed * (1 if self.powered_up else 1)
 
         # Move one step at a time to ensure no skipping through walls
         for step in range(movement_speed // self.speed):
