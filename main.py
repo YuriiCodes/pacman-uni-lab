@@ -191,12 +191,29 @@ class Maze:
                 else:
                     # Add coins to empty spaces
                     self.coins.append(Coin(col * TILE_SIZE + TILE_SIZE // 4, row * TILE_SIZE + TILE_SIZE // 4))
+        empty_tiles = [(row, col) for row in range(ROWS) for col in range(COLS) if self.grid[row][col] == 0]
+        random.shuffle(empty_tiles)
+        self.coins = [Coin(col * TILE_SIZE + TILE_SIZE // 4, row * TILE_SIZE + TILE_SIZE // 4) for row, col in
+                      empty_tiles[3:]]  # All but 3 for cherries
+        self.cherries = [empty_tiles.pop() for _ in range(3)]  # 3 cherries
+
+    #     remove coins from cherries:
+        for cherry in self.cherries:
+            for coin in self.coins[:]:
+                if cherry[0] * TILE_SIZE <= coin.rect.y <= cherry[0] * TILE_SIZE + TILE_SIZE and cherry[1] * TILE_SIZE <= coin.rect.x <= cherry[1] * TILE_SIZE + TILE_SIZE:
+                    self.coins.remove(coin)
 
     def draw(self, screen):
         for wall in self.walls:
             pygame.draw.rect(screen, BLUE, wall)
         for coin in self.coins:
             coin.draw(screen)
+        # Draw cherries
+        for cherry in self.cherries:
+            x = cherry[1] * TILE_SIZE + TILE_SIZE // 2
+            y = cherry[0] * TILE_SIZE + TILE_SIZE // 2
+            pygame.draw.circle(screen, RED, (x - 5, y), TILE_SIZE // 6)  # First red circle
+            pygame.draw.circle(screen, RED, (x + 5, y), TILE_SIZE // 6)  # Second red circle
 
 
 def next_level_screen():
@@ -217,9 +234,10 @@ def next_level_screen():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 return False
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if next_level_button.collidepoint(event.pos):
-                return True
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if next_level_button.collidepoint(event.pos):
+                    return True
+
 
 def game_over_screen():
     """Display game over screen with replay button."""
@@ -231,6 +249,7 @@ def game_over_screen():
     replay_text = font.render('Replay', True, BLACK)
     screen.blit(text, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
     screen.blit(replay_text, (SCREEN_WIDTH // 2 - 80, SCREEN_HEIGHT // 2 + 10))
+
     pygame.display.flip()
 
     while True:
@@ -242,12 +261,14 @@ def game_over_screen():
                 if replay_button.collidepoint(event.pos):
                     return True
 
+
 def game_loop():
     global LEVEL
     clock = pygame.time.Clock()
     maze = Maze(LEVEL)
     pacman = Pacman(TILE_SIZE, TILE_SIZE)
-    score = 0 # Initialize score
+    score = 0  # Initialize score
+
     # Font for score and level display
     font = pygame.font.Font(None, 36)
 
@@ -288,9 +309,16 @@ def game_loop():
                 maze.coins.remove(coin)
                 score += 1
 
-        # Check if all coins are collected to complete the level
-        if not maze.coins:
-            LEVEL += 1  # Increment the level
+        # Check for collision with cherries
+        for cherry in maze.cherries[:]:
+            cherry_rect = pygame.Rect(cherry[1] * TILE_SIZE, cherry[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            if pacman.rect.colliderect(cherry_rect):
+                maze.cherries.remove(cherry)
+                score += 100
+
+        # Check if all coins are collected or score > 300 to complete the level
+        if not maze.coins or score >= 300:
+            LEVEL += 1
             if next_level_screen():
                 game_loop()
             else:
@@ -326,6 +354,9 @@ def game_loop():
         clock.tick(10)
 
 
-if __name__ == '__main__':
+# Run the game loop
+if __name__ == "__main__":
     game_loop()
-    pygame.quit()
+
+# Quit Pygame
+pygame.quit()
