@@ -23,6 +23,10 @@ PINK = (255, 192, 203)
 PURPLE = (128, 0, 128)
 WHITE = (255, 255, 255)
 GOLD = (255, 215, 0)
+GREEN = (0, 255, 0)
+MAGENTA = (255, 0, 255)
+
+LIGHT_BLUE = (173, 216, 230)
 
 # Initialize screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -35,30 +39,68 @@ class Pacman:
         self.rect = pygame.Rect(x, y, TILE_SIZE, TILE_SIZE)
         self.speed = TILE_SIZE
         self.direction = (0, 0)
+        self.powered_up = False  # Track if Pacman is powered up
+        self.power_up_time = 0  # Time remaining for power-up
+        self.blinking = False  # To blink Pacman near the end of power-up
 
     def move(self, maze):
-        new_rect = self.rect.move(self.direction[0] * self.speed, self.direction[1] * self.speed)
-        if not self.collide_with_walls(new_rect, maze):
-            self.rect = new_rect
+        # Adjust speed based on power-up state
+        movement_speed = self.speed * (2 if self.powered_up else 1)
+
+        # Move one step at a time to ensure no skipping through walls
+        for step in range(movement_speed // self.speed):
+            new_rect = self.rect.move(self.direction[0] * self.speed, self.direction[1] * self.speed)
+            if not self.collide_with_walls(new_rect, maze):
+                self.rect = new_rect
+            else:
+                break  # Stop moving if we hit a wall
 
     def collide_with_walls(self, new_rect, maze):
         for wall in maze.walls:
             if new_rect.colliderect(wall):
                 return True
         return False
+    def update_power_up(self):
+        """Update Pacman's power-up state and handle blinking."""
+        if self.power_up_time > 0:
+            self.power_up_time -= 1
+            if self.power_up_time == 120:  # 5 seconds remaining (60 FPS)
+                self.blinking = True
+            elif self.power_up_time == 0:
+                self.powered_up = False
+                self.blinking = False
 
     def draw(self, screen):
-        pygame.draw.ellipse(screen, YELLOW, self.rect)
+        # Pacman blinks green to yellow when the power-up is about to expire
+        if self.blinking and self.power_up_time % 10 < 5:
+            color = YELLOW
+        else:
+            color = GREEN if self.powered_up else YELLOW
+        pygame.draw.ellipse(screen, color, self.rect)
+
 
 
 # Define Ghost class
 class Ghost:
     def __init__(self, x, y, color, algorithm='bfs', speed_factor=2):
         self.rect = pygame.Rect(x, y, TILE_SIZE, TILE_SIZE)
-        self.color = color
+        self.original_color = color  # Store the original color
+        self.color = color  # This will be used to change the color when powered up
         self.algorithm = algorithm
-        self.speed_factor = speed_factor
-        self.steps = 0
+        self.speed_factor = speed_factor  # Higher speed_factor makes the ghost move less often
+        self.steps = 0  # Track steps to control movement frequency
+        self.dead = False  # Track if the ghost is "dead"
+
+    def move_away_from_pacman(self, pacman, maze):
+        """Move the ghost away from Pacman."""
+        start = (self.rect.y // TILE_SIZE, self.rect.x // TILE_SIZE)
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        random.shuffle(directions)
+        for direction in directions:
+            next_step = (start[0] + direction[0], start[1] + direction[1])
+            if 0 <= next_step[0] < ROWS and 0 <= next_step[1] < COLS and maze.grid[next_step[0]][next_step[1]] == 0:
+                return [start, next_step]
+        return [start]
 
     def bfs(self, start, goal, maze):
         """Breadth-First Search algorithm to find the shortest path."""
@@ -120,30 +162,32 @@ class Ghost:
         return [start]
 
     def move_toward_pacman(self, pacman, maze, ghosts):
-        start = (self.rect.y // TILE_SIZE, self.rect.x // TILE_SIZE)
-        goal = (pacman.rect.y // TILE_SIZE, pacman.rect.x // TILE_SIZE)
+        if pacman.powered_up:
+            path = self.move_away_from_pacman(pacman, maze)  # Move away from Pacman
+            self.color = LIGHT_BLUE  # Turn blue when Pacman is powered up
+        else:
+            self.color = self.original_color  # Restore the original color when power-up ends
 
-        # Use the selected algorithm for this ghost
-        if self.algorithm == 'bfs':
-            path = self.bfs(start, goal, maze)
-        elif self.algorithm == 'dfs':
-            path = self.dfs(start, goal, maze)
-        else:  # Random walk
-            path = self.random_walk(start, maze)
+            # Use the selected algorithm for this ghost
+            if self.algorithm == 'bfs':
+                path = self.bfs((self.rect.y // TILE_SIZE, self.rect.x // TILE_SIZE),
+                                (pacman.rect.y // TILE_SIZE, pacman.rect.x // TILE_SIZE), maze)
+            elif self.algorithm == 'dfs':
+                path = self.dfs((self.rect.y // TILE_SIZE, self.rect.x // TILE_SIZE),
+                                (pacman.rect.y // TILE_SIZE, pacman.rect.x // TILE_SIZE), maze)
+            else:  # Random walk
+                path = self.random_walk((self.rect.y // TILE_SIZE, self.rect.x // TILE_SIZE), maze)
 
+        # Slow down the ghost movement based on its speed_factor
         if len(path) > 1:
-            # Adjust speed by moving only every few frames
             self.steps += 1
-            if self.steps % self.speed_factor == 0:
-                next_step = path[1]
-                next_rect = pygame.Rect(next_step[1] * TILE_SIZE, next_step[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-
-                # Check if the next step collides with other ghosts
-                if not any(ghost.rect.colliderect(next_rect) for ghost in ghosts if ghost != self):
-                    self.rect.topleft = (next_step[1] * TILE_SIZE, next_step[0] * TILE_SIZE)
+            if self.steps % self.speed_factor == 0:  # Move only every few frames
+                self.rect.topleft = (path[1][1] * TILE_SIZE, path[1][0] * TILE_SIZE)
 
     def draw(self, screen):
-        pygame.draw.rect(screen, self.color, self.rect)
+        if not self.dead:  # Don't draw if ghost is dead
+            pygame.draw.rect(screen, self.color, self.rect)
+
 
 
 # Define Coin class
@@ -161,6 +205,7 @@ class Maze:
         self.walls = []
         self.coins = []
         self.cherries = []
+        self.lightnings = []
         self.grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
         self.generate_wide_open_maze(level)
 
@@ -195,12 +240,20 @@ class Maze:
         random.shuffle(empty_tiles)
         self.coins = [Coin(col * TILE_SIZE + TILE_SIZE // 4, row * TILE_SIZE + TILE_SIZE // 4) for row, col in
                       empty_tiles[3:]]  # All but 3 for cherries
+
         self.cherries = [empty_tiles.pop() for _ in range(3)]  # 3 cherries
 
-    #     remove coins from cherries:
+        # Add lightnings to empty spaces
+        self.lightnings = [empty_tiles.pop() for _ in range(2)]  # 2 lightning power-ups
+
+    #     remove cherries and lightnings from coins
         for cherry in self.cherries:
             for coin in self.coins[:]:
-                if cherry[0] * TILE_SIZE <= coin.rect.y <= cherry[0] * TILE_SIZE + TILE_SIZE and cherry[1] * TILE_SIZE <= coin.rect.x <= cherry[1] * TILE_SIZE + TILE_SIZE:
+                if coin.rect.collidepoint(cherry[1] * TILE_SIZE + TILE_SIZE // 2, cherry[0] * TILE_SIZE + TILE_SIZE // 2):
+                    self.coins.remove(coin)
+        for lightning in self.lightnings:
+            for coin in self.coins[:]:
+                if coin.rect.collidepoint(lightning[1] * TILE_SIZE + TILE_SIZE // 2, lightning[0] * TILE_SIZE + TILE_SIZE // 2):
                     self.coins.remove(coin)
 
     def draw(self, screen):
@@ -214,6 +267,12 @@ class Maze:
             y = cherry[0] * TILE_SIZE + TILE_SIZE // 2
             pygame.draw.circle(screen, RED, (x - 5, y), TILE_SIZE // 6)  # First red circle
             pygame.draw.circle(screen, RED, (x + 5, y), TILE_SIZE // 6)  # Second red circle
+
+        # Draw lightning (yellow color)
+        for lightning in self.lightnings:
+            x = lightning[1] * TILE_SIZE + TILE_SIZE // 2
+            y = lightning[0] * TILE_SIZE + TILE_SIZE // 2
+            pygame.draw.circle(screen, MAGENTA, (x, y), TILE_SIZE // 6)
 
 
 def next_level_screen():
@@ -274,11 +333,9 @@ def game_loop():
 
     # Place 3 ghosts in the center of the screen with different search algorithms and speeds
     ghosts = [
-        Ghost(SCREEN_WIDTH // 2 - TILE_SIZE, SCREEN_HEIGHT // 2 - TILE_SIZE, PINK, 'bfs', speed_factor=4),
-        # BFS Pink ghost
-        Ghost(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, RED, 'dfs', speed_factor=3),  # DFS Red ghost
+        Ghost(SCREEN_WIDTH // 2 - TILE_SIZE, SCREEN_HEIGHT // 2 - TILE_SIZE, PINK, 'bfs', speed_factor=2),
+        Ghost(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, RED, 'dfs', speed_factor=2),
         Ghost(SCREEN_WIDTH // 2 + TILE_SIZE, SCREEN_HEIGHT // 2, PURPLE, 'random', speed_factor=2)
-        # Random walk Purple ghost
     ]
 
     running = True
@@ -316,8 +373,27 @@ def game_loop():
                 maze.cherries.remove(cherry)
                 score += 100
 
-        # Check if all coins are collected or score > 300 to complete the level
-        if not maze.coins or score >= 300:
+        # Check for collision with lightnings
+        for lightning in maze.lightnings[:]:
+            lightning_rect = pygame.Rect(lightning[1] * TILE_SIZE, lightning[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            if pacman.rect.colliderect(lightning_rect):
+                maze.lightnings.remove(lightning)
+                pacman.powered_up = True
+                pacman.power_up_time = 420  # 7 seconds (60 FPS * 7)
+                pacman.blinking = False
+
+        # Update Pacman's power-up timer
+        pacman.update_power_up()
+
+        # Check for collision with ghosts during power-up
+        for ghost in ghosts[:]:
+            if pacman.rect.colliderect(ghost.rect) and pacman.powered_up and not ghost.dead:
+                ghost.dead = True  # Ghost dies
+                ghosts.remove(ghost)
+                score += 200  # Pacman earns 200 points
+
+        # Check if all coins are collected or score >= 500 to complete the level
+        if not maze.coins or score >= 500:
             LEVEL += 1
             if next_level_screen():
                 game_loop()
@@ -328,9 +404,9 @@ def game_loop():
         for ghost in ghosts:
             ghost.move_toward_pacman(pacman, maze, ghosts)
 
-        # Check for collision with ghosts
+        # Check for collision with ghosts when Pacman is not powered up
         for ghost in ghosts:
-            if pacman.rect.colliderect(ghost.rect):
+            if pacman.rect.colliderect(ghost.rect) and not pacman.powered_up:
                 if game_over_screen():
                     # Restart the game
                     game_loop()
@@ -352,6 +428,7 @@ def game_loop():
         # Refresh the screen
         pygame.display.flip()
         clock.tick(10)
+
 
 
 # Run the game loop
