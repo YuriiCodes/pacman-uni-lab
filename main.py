@@ -162,6 +162,43 @@ class Ghost:
                 return [start, next_step]
         return [start]
 
+    # 3rd searching algo:
+    def astar(self, start, goal, maze):
+        """A* algorithm for ghost movement."""
+        def heuristic(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        open_list = [start]
+        came_from = {start: None}
+        g_score = {start: 0}
+        f_score = {start: heuristic(start, goal)}
+
+        while open_list:
+            current = min(open_list, key=lambda x: f_score[x])
+            if current == goal:
+                break
+
+            open_list.remove(current)
+            for direction in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                neighbor = (current[0] + direction[0], current[1] + direction[1])
+                if 0 <= neighbor[0] < ROWS and 0 <= neighbor[1] < COLS and maze.grid[neighbor[0]][neighbor[1]] == 0:
+                    tentative_g_score = g_score[current] + 1
+                    if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                        came_from[neighbor] = current
+                        g_score[neighbor] = tentative_g_score
+                        f_score[neighbor] = tentative_g_score + heuristic(neighbor, goal)
+                        if neighbor not in open_list:
+                            open_list.append(neighbor)
+
+        # Reconstruct the path
+        current = goal
+        path = []
+        while current is not None:
+            path.append(current)
+            current = came_from[current]
+        path.reverse()
+
+        return path
     def move_toward_pacman(self, pacman, maze, ghosts):
         if pacman.powered_up:
             path = self.move_away_from_pacman(pacman, maze)  # Move away from Pacman
@@ -341,7 +378,7 @@ def game_loop():
     ghosts = [
         Ghost(SCREEN_WIDTH // 2 - TILE_SIZE, SCREEN_HEIGHT // 2 - TILE_SIZE, PINK, 'bfs', speed_factor=2),
         Ghost(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, RED, 'dfs', speed_factor=2),
-        Ghost(SCREEN_WIDTH // 2 + TILE_SIZE, SCREEN_HEIGHT // 2, PURPLE, 'random', speed_factor=2)
+        Ghost(SCREEN_WIDTH // 2 + TILE_SIZE, SCREEN_HEIGHT // 2, PURPLE, 'astar', speed_factor=2)
     ]
 
     running = True
